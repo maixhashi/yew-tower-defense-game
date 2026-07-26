@@ -39,4 +39,22 @@ pub static DEFENSE_CATALOG: &[DefenseStats] = &[
         cooldown: 0.0,
         blocks_path: true,
     },
+    DefenseStats {
+        type_id: "frost_archer",
+        visual_key: "tower_frost_archer",
+        cost: 35,
+        damage: 2.5,
+        range: 9.0,
+        cooldown: 0.55,
+        blocks_path: false,
+    },
+    DefenseStats {
+        type_id: "mortar",
+        visual_key: "tower_mortar",
+        cost: 55,
+        damage: 14.0,
+        range: 10.0,
+        cooldown: 2.0,
+        blocks_path: false,
+    },
 ];
