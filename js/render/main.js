@@ -171,4 +171,31 @@ if (!canvas) {
       console.warn("[render] snapshot parse failed", err);
     }
   });
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  canvas.addEventListener("pointerdown", (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObject(ground);
+    if (!hits.length) return;
+    const p = hits[0].point;
+    const cellSize = 2;
+    const cell_x = Math.round(p.x / cellSize);
+    const cell_z = Math.round(p.z / cellSize);
+    const type_id = window.__tdSelectedType || "cannon";
+    const push = window.__tdPushCommandJson;
+    if (typeof push === "function") {
+      push(
+        JSON.stringify({
+          type: "place_tower",
+          type_id,
+          cell_x,
+          cell_z,
+        }),
+      );
+    }
+  });
 }

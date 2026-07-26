@@ -3,7 +3,9 @@
 
 use std::cell::RefCell;
 
+use js_sys::Function;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use web_sys::{CustomEvent, CustomEventInit};
 
 use crate::sim::{Command, FrameSnapshot, World};
@@ -38,7 +40,24 @@ fn with_world_mut<R>(f: impl FnOnce(&mut World) -> R) -> R {
 #[wasm_bindgen(js_name = gameInit)]
 pub fn game_init() {
     ensure_world();
+    install_js_command_hook();
     start_game_loop();
+}
+
+fn install_js_command_hook() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let closure = Closure::<dyn FnMut(String)>::new(|json: String| {
+        let _ = game_push_command_json(&json);
+    });
+    let func: Function = closure.as_ref().unchecked_ref::<Function>().clone();
+    let _ = js_sys::Reflect::set(
+        &window,
+        &JsValue::from_str("__tdPushCommandJson"),
+        &func,
+    );
+    closure.forget();
 }
 
 #[wasm_bindgen(js_name = gamePushCommandJson)]
@@ -72,6 +91,14 @@ pub fn peek_paused() -> bool {
 
 pub fn peek_tick() -> u64 {
     with_world(|world| world.current_tick())
+}
+
+pub fn peek_resources() -> u32 {
+    with_world(|world| world.resources())
+}
+
+pub fn peek_castle_hp() -> f32 {
+    with_world(|world| world.castle_hp_value())
 }
 
 fn emit_snapshot(json: &str) {

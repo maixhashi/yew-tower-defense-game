@@ -976,6 +976,7 @@ version = "0.1.0"
 dependencies = [
  "gloo-timers",
  "gloo-utils",
+ "js-sys",
  "serde",
  "serde_json",
  "wasm-bindgen",

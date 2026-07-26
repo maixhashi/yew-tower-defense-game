@@ -6,4 +6,6 @@ use serde::{Deserialize, Serialize};
 pub enum Command {
     TogglePause,
     SetPaused { paused: bool },
+    SelectCard { card: String },
+    PlaceTower { type_id: String, cell_x: i32, cell_z: i32 },
 }

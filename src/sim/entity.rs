@@ -14,6 +14,7 @@ pub struct Enemy {
     pub speed: f32,
     /// デバッグ移動用の位相（ラジアン）。
     pub phase: f32,
+    pub waypoint_index: usize,
 }
 
 #[derive(Debug, Clone)]
