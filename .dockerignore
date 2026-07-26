@@ -1,0 +1,7 @@
+.git
+.cursor
+dist
+target
+**/mutants.out*
+*.md
+!README.md
