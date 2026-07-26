@@ -1,6 +1,5 @@
 /**
- * Phase 1: static night box-castle scene (no sim sync yet).
- * Three.js is loaded from CDN as an ES module.
+ * Static box-castle + Dirty Flag sync from td-snapshot events.
  */
 import * as THREE from "https://unpkg.com/three@0.170.0/build/three.module.js";
 
@@ -74,6 +73,67 @@ if (!canvas) {
     scene.add(tower);
   }
 
+  const visualRegistry = {
+    enemy_box: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 1.2, 0.9),
+        new THREE.MeshStandardMaterial({ color: 0xc45c5c }),
+      ),
+    tower_cannon: () =>
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.55, 1.4, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd4a574 }),
+      ),
+    tower_archer: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 1.5, 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x7ec8a3 }),
+      ),
+    tower_barricade: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 0.8, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x8b7355 }),
+      ),
+  };
+
+  const dynamicRoot = new THREE.Group();
+  scene.add(dynamicRoot);
+  /** @type {Map<string, THREE.Object3D>} */
+  const meshByKey = new Map();
+
+  function entityKey(kind, id) {
+    return `${kind}:${id}`;
+  }
+
+  function syncEntities(kind, list) {
+    const alive = new Set();
+    for (const item of list || []) {
+      const key = entityKey(kind, item.id);
+      alive.add(key);
+      let mesh = meshByKey.get(key);
+      if (!mesh) {
+        const factory =
+          visualRegistry[item.visual_key] || visualRegistry.enemy_box;
+        mesh = factory();
+        mesh.userData.entityKey = key;
+        dynamicRoot.add(mesh);
+        meshByKey.set(key, mesh);
+      }
+      mesh.position.set(item.x, item.y, item.z);
+    }
+    for (const [key, mesh] of meshByKey) {
+      if (key.startsWith(`${kind}:`) && !alive.has(key)) {
+        dynamicRoot.remove(mesh);
+        meshByKey.delete(key);
+      }
+    }
+  }
+
+  function applySnapshot(snap) {
+    syncEntities("enemy", snap.enemies);
+    syncEntities("tower", snap.towers);
+  }
+
   function resize() {
     const rect = canvas.getBoundingClientRect();
     const w = Math.max(1, Math.floor(rect.width));
@@ -92,13 +152,21 @@ if (!canvas) {
   }
   requestAnimationFrame(frame);
 
-  window.__tdRender = { scene, camera, renderer, THREE };
+  window.__tdRender = {
+    scene,
+    camera,
+    renderer,
+    THREE,
+    applySnapshot,
+    visualRegistry,
+  };
   window.__tdLastSnapshot = null;
   window.addEventListener("td-snapshot", (event) => {
     try {
       const detail = event.detail;
-      window.__tdLastSnapshot =
-        typeof detail === "string" ? JSON.parse(detail) : detail;
+      const snap = typeof detail === "string" ? JSON.parse(detail) : detail;
+      window.__tdLastSnapshot = snap;
+      applySnapshot(snap);
     } catch (err) {
       console.warn("[render] snapshot parse failed", err);
     }
