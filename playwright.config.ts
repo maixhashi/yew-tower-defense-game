@@ -16,5 +16,12 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // System Chrome: bundled Chromium install is unavailable on older macOS (e.g. mac13).
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], channel: "chrome" },
+    },
+  ],
 });
+
