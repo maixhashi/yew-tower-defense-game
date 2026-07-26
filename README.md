@@ -47,16 +47,14 @@ cursor-settings apply /path/to/yew-tower-defense-game \
   --layers common,personal-pc --stacks rust
 ```
 
-## E2E スクリーンショット（Playwright）
+## PR 用スクリーンショット（Playwright）
 
-アプリを先に起動してから実行します（`webServer` で Trunk を二重起動しません）。
+PR の `### Screenshot/Capture` 用に、ローカルで撮影してブランチへコミットします（GitHub Actions では実行しません）。`webServer` で Trunk を二重起動しないため、アプリを先に起動してください。
 
 ```bash
 docker compose up --build
-# 別ターミナル
-npm ci
-npm run e2e:install
-npm run e2e:screenshot
+# 別ターミナル（HTTP ready 後）
+npm run pr:screenshot
 ```
 
-成果物は `e2e/artifacts/`（gitignore）。CI では artifact としてアップロードされます。
+一時成果物は `e2e/artifacts/`（gitignore）。PR に載せる画像は `docs/assets/pr-screenshots/` へコピーされます。スクリプトが出力する Markdown を PR 本文に貼り、同じブランチへコミット・push してください。
