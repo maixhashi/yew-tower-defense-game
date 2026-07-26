@@ -201,7 +201,26 @@ if (!canvas) {
     }
   }
 
+  let interiorLit = false;
+
+  function applySceneMode(mode) {
+    const interior = mode === "interior";
+    if (interior === interiorLit) return;
+    interiorLit = interior;
+    // 城内: ライトを落としカメラをキープ寄りへ（スタブ）
+    ambient.intensity = interior ? 0.25 : 0.45;
+    moon.intensity = interior ? 0.35 : 0.85;
+    if (interior) {
+      camera.position.set(8, 10, 10);
+      camera.lookAt(0, 2, 0);
+    } else {
+      camera.position.set(18, 14, 22);
+      camera.lookAt(0, 2, 0);
+    }
+  }
+
   function applySnapshot(snap) {
+    applySceneMode(snap.scene_mode || "exterior");
     syncEntities("enemy", snap.enemies);
     syncEntities("tower", snap.towers);
     const shots = (snap.projectiles || []).map((p) => ({

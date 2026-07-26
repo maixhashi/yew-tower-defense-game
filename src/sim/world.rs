@@ -4,8 +4,11 @@ use super::catalog;
 use super::command::Command;
 use super::entity::{Enemy, EntityId, Projectile, Tower};
 use super::event::GameEvent;
-use super::exterior::{advance_along_path, try_place_tower, PlaceError, EXTERIOR_WAYPOINTS};
-use super::match_state::MatchState;
+use super::exterior::{
+    advance_along_waypoints, try_place_tower, PlaceError, EXTERIOR_WAYPOINTS,
+};
+use super::interior::INTERIOR_WAYPOINTS;
+use super::match_state::{MatchState, SceneMode};
 use super::snapshot::{EnemySnap, FrameSnapshot, ProjectileSnap, TowerSnap};
 use super::waves::WAVES;
 
@@ -30,6 +33,8 @@ pub struct World {
     projectiles: HashMap<EntityId, Projectile>,
     commands: Vec<Command>,
     events: Vec<GameEvent>,
+    /// 城壁突破後は true（城内ウェイポイントへ切替）。
+    interior_active: bool,
     /// テストで手動スポーンするとき false。
     auto_waves: bool,
 }
@@ -54,6 +59,7 @@ impl World {
             projectiles: HashMap::new(),
             commands: Vec::new(),
             events: Vec::new(),
+            interior_active: false,
             auto_waves: true,
         }
     }
@@ -91,6 +97,11 @@ impl World {
             tick: self.tick,
             paused: self.paused,
             match_state: self.match_state,
+            scene_mode: if self.interior_active {
+                SceneMode::Interior
+            } else {
+                SceneMode::Exterior
+            },
             castle_hp: self.castle_hp,
             resources: self.resources,
             wave: self.wave,
@@ -162,6 +173,30 @@ impl World {
         self.match_state
     }
 
+    pub fn scene_mode(&self) -> SceneMode {
+        if self.interior_active {
+            SceneMode::Interior
+        } else {
+            SceneMode::Exterior
+        }
+    }
+
+    fn active_waypoints(&self) -> &'static [super::exterior::path::Vec3] {
+        if self.interior_active {
+            INTERIOR_WAYPOINTS
+        } else {
+            EXTERIOR_WAYPOINTS
+        }
+    }
+
+    fn resume_match_state(&self) -> MatchState {
+        if self.interior_active {
+            MatchState::Interior
+        } else {
+            MatchState::Playing
+        }
+    }
+
     fn alloc_id(&mut self) -> EntityId {
         let id = self.next_id;
         self.next_id = self.next_id.saturating_add(1);
@@ -229,7 +264,7 @@ impl World {
             return;
         };
         let id = self.alloc_id();
-        let start = EXTERIOR_WAYPOINTS[0];
+        let start = self.active_waypoints()[0];
         let offset = (id % 5) as f32 * 0.35;
         self.enemies.insert(
             id,
@@ -267,9 +302,11 @@ impl World {
     }
 
     fn update_enemies(&mut self, dt: f32) {
+        let waypoints = self.active_waypoints();
         let mut breached = Vec::new();
         for enemy in self.enemies.values_mut() {
-            let reached = advance_along_path(
+            let reached = advance_along_waypoints(
+                waypoints,
                 &mut enemy.waypoint_index,
                 &mut enemy.x,
                 &mut enemy.y,
@@ -298,6 +335,10 @@ impl World {
                 self.match_state = MatchState::Lost;
                 self.paused = true;
                 self.events.push(GameEvent::MatchEnded { won: false });
+            } else if !self.interior_active {
+                // 突破したが落城していない → 城内戦へ
+                self.interior_active = true;
+                self.match_state = MatchState::Interior;
             }
         }
     }
@@ -412,7 +453,7 @@ impl World {
                     self.match_state = if self.paused {
                         MatchState::Paused
                     } else {
-                        MatchState::Playing
+                        self.resume_match_state()
                     };
                     self.events
                         .push(GameEvent::PauseChanged { paused: self.paused });
@@ -426,7 +467,7 @@ impl World {
                         self.match_state = if paused {
                             MatchState::Paused
                         } else {
-                            MatchState::Playing
+                            self.resume_match_state()
                         };
                         self.events.push(GameEvent::PauseChanged { paused });
                     }
@@ -496,6 +537,7 @@ impl Default for World {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sim::exterior::EXTERIOR_WAYPOINTS;
 
     #[test]
     fn when_not_paused_tick_advances() {
@@ -618,6 +660,38 @@ mod tests {
         let mut world = World::new();
         let snap = world.take_snapshot();
         assert_eq!(snap.match_state, MatchState::Playing);
+        assert_eq!(snap.scene_mode, SceneMode::Exterior);
         assert_eq!(snap.total_waves, WAVES.len() as u32);
+    }
+
+    #[test]
+    fn when_enemy_breaches_with_hp_remaining_match_enters_interior() {
+        let mut world = World::new();
+        world.suppress_wave_spawns();
+        world.enemies.insert(
+            1,
+            Enemy {
+                id: 1,
+                type_id: "grunt".into(),
+                visual_key: "enemy_box".into(),
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+                hp: 10.0,
+                speed: 20.0,
+                phase: 0.0,
+                waypoint_index: EXTERIOR_WAYPOINTS.len().saturating_sub(1),
+            },
+        );
+        for _ in 0..50 {
+            world.tick(0.05);
+            if world.match_state() == MatchState::Interior {
+                break;
+            }
+        }
+        assert_eq!(world.match_state(), MatchState::Interior);
+        assert_eq!(world.scene_mode(), SceneMode::Interior);
+        assert!(world.castle_hp_value() < 100.0);
+        assert!(world.castle_hp_value() > 0.0);
     }
 }
