@@ -1,0 +1,40 @@
+name: Auto assign PR
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  assign-author:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign pull request author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const assignee = context.payload.pull_request.user.login;
+            const issue_number = context.issue.number;
+            const { owner, repo } = context.repo;
+
+            const { data: pull } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: issue_number,
+            });
+
+            if (pull.assignees.some((a) => a.login === assignee)) {
+              core.info(`Already assigned: ${assignee}`);
+              return;
+            }
+
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number,
+              assignees: [assignee],
+            });
+            core.info(`Assigned: ${assignee}`);
