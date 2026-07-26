@@ -4,7 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>古城防衛戦</title>
+    <link data-trunk rel="css" href="styles/app.css" />
+    <link data-trunk rel="copy-dir" href="js" />
     <link data-trunk rel="rust" />
   </head>
-  <body></body>
+  <body>
+    <div id="game-root">
+      <canvas id="game-canvas" data-testid="game-canvas"></canvas>
+      <div id="yew-root"></div>
+    </div>
+    <script type="module" src="/js/render/main.js"></script>
+  </body>
 </html>

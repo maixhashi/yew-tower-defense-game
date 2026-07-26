@@ -1,0 +1,55 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: #0b1020;
+  color: #e8eefc;
+}
+
+#game-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#yew-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#yew-root .app {
+  pointer-events: auto;
+  margin: 1rem;
+  max-width: 22rem;
+  padding: 1rem 1.25rem;
+  background: rgba(12, 18, 32, 0.82);
+  border: 1px solid rgba(180, 200, 255, 0.25);
+}
+
+#yew-root h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+#yew-root .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+#yew-root button {
+  cursor: pointer;
+}
