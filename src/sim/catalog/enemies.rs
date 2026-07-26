@@ -22,6 +22,27 @@ pub static ENEMY_CATALOG: &[EnemyStats] = &[
         speed: 3.0,
         breach_damage: 4.0,
     },
+    EnemyStats {
+        type_id: "armored",
+        visual_key: "enemy_armored",
+        hp: 45.0,
+        speed: 1.4,
+        breach_damage: 8.0,
+    },
+    EnemyStats {
+        type_id: "raider",
+        visual_key: "enemy_raider",
+        hp: 12.0,
+        speed: 4.2,
+        breach_damage: 3.0,
+    },
+    EnemyStats {
+        type_id: "sieger",
+        visual_key: "enemy_sieger",
+        hp: 60.0,
+        speed: 1.1,
+        breach_damage: 15.0,
+    },
 ];
 
 pub fn enemy_by_id(type_id: &str) -> Option<&'static EnemyStats> {

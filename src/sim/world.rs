@@ -436,6 +436,8 @@ impl World {
                         "cannon" | "Cannon" | "大砲" => "cannon",
                         "archer" | "Archer" | "弓兵" => "archer",
                         "barricade" | "Barricade" | "バリケード" => "barricade",
+                        "frost_archer" | "FrostArcher" | "氷弓" => "frost_archer",
+                        "mortar" | "Mortar" | "迫撃砲" => "mortar",
                         other => other,
                     };
                     if catalog::defense_by_id(type_id).is_some() {

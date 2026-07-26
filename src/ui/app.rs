@@ -148,6 +148,8 @@ pub fn app() -> Html {
                         <button type="button" onclick={select_card.reform(|_| DefenseCard::Cannon)}>{ "大砲" }</button>
                         <button type="button" onclick={select_card.reform(|_| DefenseCard::Archer)}>{ "弓兵" }</button>
                         <button type="button" onclick={select_card.reform(|_| DefenseCard::Barricade)}>{ "バリケード" }</button>
+                        <button type="button" onclick={select_card.reform(|_| DefenseCard::FrostArcher)}>{ "氷弓" }</button>
+                        <button type="button" onclick={select_card.reform(|_| DefenseCard::Mortar)}>{ "迫撃砲" }</button>
                         <button type="button" onclick={place_demo}>{ "デモ配置(4,0)" }</button>
                         <button type="button" onclick={toggle_mute}>{ "ミュート切替" }</button>
                     </div>

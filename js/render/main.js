@@ -86,6 +86,21 @@ if (!canvas) {
         new THREE.ConeGeometry(0.55, 1.4, 8),
         new THREE.MeshStandardMaterial({ color: 0xe07a3a }),
       ),
+    enemy_armored: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 1.5, 1.1),
+        new THREE.MeshStandardMaterial({ color: 0x6b7a8a, metalness: 0.4 }),
+      ),
+    enemy_raider: () =>
+      new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.55),
+        new THREE.MeshStandardMaterial({ color: 0xd45c8a }),
+      ),
+    enemy_sieger: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 1.8, 1.4),
+        new THREE.MeshStandardMaterial({ color: 0x5a3d2e }),
+      ),
     tower_cannon: () =>
       new THREE.Mesh(
         new THREE.CylinderGeometry(0.45, 0.55, 1.4, 10),
@@ -100,6 +115,16 @@ if (!canvas) {
       new THREE.Mesh(
         new THREE.BoxGeometry(1.4, 0.8, 0.5),
         new THREE.MeshStandardMaterial({ color: 0x8b7355 }),
+      ),
+    tower_frost_archer: () =>
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 1.55, 0.65),
+        new THREE.MeshStandardMaterial({ color: 0x7ec8e0 }),
+      ),
+    tower_mortar: () =>
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.7, 1.1, 10),
+        new THREE.MeshStandardMaterial({ color: 0xb07050 }),
       ),
     projectile: () =>
       new THREE.Mesh(

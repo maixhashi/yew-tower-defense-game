@@ -14,6 +14,8 @@ pub enum DefenseCard {
     Cannon,
     Archer,
     Barricade,
+    FrostArcher,
+    Mortar,
 }
 
 impl DefenseCard {
@@ -22,6 +24,8 @@ impl DefenseCard {
             Self::Cannon => "大砲",
             Self::Archer => "弓兵",
             Self::Barricade => "バリケード",
+            Self::FrostArcher => "氷弓",
+            Self::Mortar => "迫撃砲",
         }
     }
 
@@ -30,6 +34,8 @@ impl DefenseCard {
             Self::Cannon => "cannon",
             Self::Archer => "archer",
             Self::Barricade => "barricade",
+            Self::FrostArcher => "frost_archer",
+            Self::Mortar => "mortar",
         }
     }
 }
