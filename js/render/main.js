@@ -99,6 +99,11 @@ if (!canvas) {
         new THREE.BoxGeometry(1.4, 0.8, 0.5),
         new THREE.MeshStandardMaterial({ color: 0x8b7355 }),
       ),
+    projectile: () =>
+      new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0x665522 }),
+      ),
   };
 
   const dynamicRoot = new THREE.Group();
@@ -137,6 +142,11 @@ if (!canvas) {
   function applySnapshot(snap) {
     syncEntities("enemy", snap.enemies);
     syncEntities("tower", snap.towers);
+    const shots = (snap.projectiles || []).map((p) => ({
+      ...p,
+      visual_key: "projectile",
+    }));
+    syncEntities("projectile", shots);
   }
 
   function resize() {

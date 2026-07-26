@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use super::catalog;
 use super::command::Command;
-use super::entity::{Enemy, EntityId, Tower};
+use super::entity::{Enemy, EntityId, Projectile, Tower};
 use super::event::GameEvent;
 use super::exterior::{advance_along_path, try_place_tower, PlaceError, EXTERIOR_WAYPOINTS};
-use super::snapshot::{EnemySnap, FrameSnapshot, TowerSnap};
+use super::snapshot::{EnemySnap, FrameSnapshot, ProjectileSnap, TowerSnap};
 
 /// シミュレーション状態の単一所有者。
 #[derive(Debug)]
@@ -19,6 +19,7 @@ pub struct World {
     selected_type: Option<String>,
     towers: HashMap<EntityId, Tower>,
     enemies: HashMap<EntityId, Enemy>,
+    projectiles: HashMap<EntityId, Projectile>,
     commands: Vec<Command>,
     events: Vec<GameEvent>,
     debug_spawned: bool,
@@ -36,6 +37,7 @@ impl World {
             selected_type: None,
             towers: HashMap::new(),
             enemies: HashMap::new(),
+            projectiles: HashMap::new(),
             commands: Vec::new(),
             events: Vec::new(),
             debug_spawned: false,
@@ -55,6 +57,8 @@ impl World {
         if self.paused {
             return;
         }
+        self.update_towers(dt);
+        self.update_projectiles(dt);
         self.update_enemies(dt);
         self.tick = self.tick.saturating_add(1);
     }
@@ -90,6 +94,16 @@ impl World {
                     y: e.y,
                     z: e.z,
                     hp: e.hp,
+                })
+                .collect(),
+            projectiles: self
+                .projectiles
+                .values()
+                .map(|p| ProjectileSnap {
+                    id: p.id,
+                    x: p.x,
+                    y: p.y,
+                    z: p.z,
                 })
                 .collect(),
             events,
@@ -182,6 +196,98 @@ impl World {
         self.towers
             .values()
             .any(|t| t.cell_x == cell_x && t.cell_z == cell_z)
+    }
+
+    fn update_towers(&mut self, dt: f32) {
+        let enemy_positions: Vec<(EntityId, f32, f32, f32)> = self
+            .enemies
+            .values()
+            .map(|e| (e.id, e.x, e.y, e.z))
+            .collect();
+        let mut shots = Vec::new();
+        for tower in self.towers.values_mut() {
+            let Some(stats) = catalog::defense_by_id(&tower.type_id) else {
+                continue;
+            };
+            if stats.damage <= 0.0 {
+                continue;
+            }
+            tower.cooldown = (tower.cooldown - dt).max(0.0);
+            if tower.cooldown > 0.0 {
+                continue;
+            }
+            let mut best: Option<(EntityId, f32)> = None;
+            for &(id, x, y, z) in &enemy_positions {
+                let dx = x - tower.x;
+                let dy = y - tower.y;
+                let dz = z - tower.z;
+                let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+                if dist <= stats.range && best.map(|(_, d)| dist < d).unwrap_or(true) {
+                    best = Some((id, dist));
+                }
+            }
+            if let Some((target_id, _)) = best {
+                tower.cooldown = stats.cooldown;
+                shots.push((tower.x, tower.y + 0.8, tower.z, target_id, stats.damage));
+            }
+        }
+        for (x, y, z, target_id, damage) in shots {
+            let id = self.alloc_id();
+            self.projectiles.insert(
+                id,
+                Projectile {
+                    id,
+                    target_id,
+                    x,
+                    y,
+                    z,
+                    speed: 14.0,
+                    damage,
+                },
+            );
+        }
+    }
+
+    fn update_projectiles(&mut self, dt: f32) {
+        let mut hit = Vec::new();
+        let mut orphan = Vec::new();
+        for proj in self.projectiles.values_mut() {
+            let Some(target) = self.enemies.get(&proj.target_id) else {
+                orphan.push(proj.id);
+                continue;
+            };
+            let dx = target.x - proj.x;
+            let dy = target.y - proj.y;
+            let dz = target.z - proj.z;
+            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+            let step = proj.speed * dt;
+            if dist <= step || dist < 0.15 {
+                hit.push((proj.id, proj.target_id, proj.damage));
+            } else {
+                let inv = step / dist;
+                proj.x += dx * inv;
+                proj.y += dy * inv;
+                proj.z += dz * inv;
+            }
+        }
+        for id in orphan {
+            self.projectiles.remove(&id);
+        }
+        for (proj_id, enemy_id, damage) in hit {
+            self.projectiles.remove(&proj_id);
+            if let Some(enemy) = self.enemies.get_mut(&enemy_id) {
+                enemy.hp -= damage;
+                if enemy.hp <= 0.0 {
+                    let reward = 8;
+                    self.enemies.remove(&enemy_id);
+                    self.resources = self.resources.saturating_add(reward);
+                    self.events.push(GameEvent::EnemyKilled {
+                        enemy_id,
+                        reward,
+                    });
+                }
+            }
+        }
     }
 
     fn apply_commands(&mut self) {
@@ -311,5 +417,41 @@ mod tests {
             }
         }
         assert!(world.castle_hp_value() < 100.0);
+    }
+
+    #[test]
+    fn when_tower_is_in_range_enemy_can_be_killed() {
+        let mut world = World::new();
+        world.debug_spawned = true;
+        world.enemies.clear();
+        world.enemies.insert(
+            99,
+            Enemy {
+                id: 99,
+                type_id: "grunt".into(),
+                visual_key: "enemy_box".into(),
+                x: 8.0,
+                y: 0.6,
+                z: 0.0,
+                hp: 5.0,
+                speed: 0.0,
+                phase: 0.0,
+                waypoint_index: 0,
+            },
+        );
+        world.push_command(Command::PlaceTower {
+            type_id: "cannon".into(),
+            cell_x: 4,
+            cell_z: 0,
+        });
+        world.tick(0.0);
+        for _ in 0..500 {
+            world.tick(0.05);
+            if world.enemies.is_empty() {
+                break;
+            }
+        }
+        assert!(world.enemies.is_empty());
+        assert!(world.resources() > 60);
     }
 }
