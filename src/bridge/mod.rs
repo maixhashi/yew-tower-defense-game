@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{CustomEvent, CustomEventInit};
 
-use crate::sim::{Command, FrameSnapshot, World};
+use crate::sim::{Command, FrameSnapshot, MatchState, World};
 
 thread_local! {
     static WORLD: RefCell<Option<World>> = const { RefCell::new(None) };
@@ -99,6 +99,18 @@ pub fn peek_resources() -> u32 {
 
 pub fn peek_castle_hp() -> f32 {
     with_world(|world| world.castle_hp_value())
+}
+
+pub fn peek_wave() -> u32 {
+    with_world(|world| world.wave())
+}
+
+pub fn peek_total_waves() -> u32 {
+    with_world(|world| world.total_waves())
+}
+
+pub fn peek_match_state() -> MatchState {
+    with_world(|world| world.match_state())
 }
 
 fn emit_snapshot(json: &str) {

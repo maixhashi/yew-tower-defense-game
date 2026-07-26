@@ -5,16 +5,24 @@ use super::command::Command;
 use super::entity::{Enemy, EntityId, Projectile, Tower};
 use super::event::GameEvent;
 use super::exterior::{advance_along_path, try_place_tower, PlaceError, EXTERIOR_WAYPOINTS};
+use super::match_state::MatchState;
 use super::snapshot::{EnemySnap, FrameSnapshot, ProjectileSnap, TowerSnap};
+use super::waves::WAVES;
 
 /// シミュレーション状態の単一所有者。
 #[derive(Debug)]
 pub struct World {
     tick: u64,
     paused: bool,
+    match_state: MatchState,
     castle_hp: f32,
     resources: u32,
+    /// 1-based の現在ウェーブ。0 は開始前。
     wave: u32,
+    spawn_group_index: usize,
+    spawns_left_in_group: u32,
+    spawn_timer: f32,
+    wave_spawn_finished: bool,
     next_id: EntityId,
     selected_type: Option<String>,
     towers: HashMap<EntityId, Tower>,
@@ -22,7 +30,8 @@ pub struct World {
     projectiles: HashMap<EntityId, Projectile>,
     commands: Vec<Command>,
     events: Vec<GameEvent>,
-    debug_spawned: bool,
+    /// テストで手動スポーンするとき false。
+    auto_waves: bool,
 }
 
 impl World {
@@ -30,9 +39,14 @@ impl World {
         Self {
             tick: 0,
             paused: false,
+            match_state: MatchState::Playing,
             castle_hp: 100.0,
             resources: 100,
             wave: 0,
+            spawn_group_index: 0,
+            spawns_left_in_group: 0,
+            spawn_timer: 0.0,
+            wave_spawn_finished: true,
             next_id: 1,
             selected_type: None,
             towers: HashMap::new(),
@@ -40,7 +54,7 @@ impl World {
             projectiles: HashMap::new(),
             commands: Vec::new(),
             events: Vec::new(),
-            debug_spawned: false,
+            auto_waves: true,
         }
     }
 
@@ -50,16 +64,24 @@ impl World {
 
     pub fn tick(&mut self, dt: f32) {
         self.apply_commands();
-        if !self.debug_spawned {
-            self.spawn_debug_enemies();
-            self.debug_spawned = true;
-        }
-        if self.paused {
+        if matches!(self.match_state, MatchState::Won | MatchState::Lost) {
             return;
+        }
+        if self.paused || self.match_state == MatchState::Paused {
+            return;
+        }
+        if self.auto_waves {
+            if self.wave == 0 {
+                self.begin_wave(1);
+            }
+            self.update_wave_spawns(dt);
         }
         self.update_towers(dt);
         self.update_projectiles(dt);
         self.update_enemies(dt);
+        if self.auto_waves {
+            self.check_wave_cleared();
+        }
         self.tick = self.tick.saturating_add(1);
     }
 
@@ -68,9 +90,11 @@ impl World {
         FrameSnapshot {
             tick: self.tick,
             paused: self.paused,
+            match_state: self.match_state,
             castle_hp: self.castle_hp,
             resources: self.resources,
             wave: self.wave,
+            total_waves: WAVES.len() as u32,
             towers: self
                 .towers
                 .values()
@@ -126,34 +150,119 @@ impl World {
         self.castle_hp
     }
 
+    pub fn wave(&self) -> u32 {
+        self.wave
+    }
+
+    pub fn total_waves(&self) -> u32 {
+        WAVES.len() as u32
+    }
+
+    pub fn match_state(&self) -> MatchState {
+        self.match_state
+    }
+
     fn alloc_id(&mut self) -> EntityId {
         let id = self.next_id;
         self.next_id = self.next_id.saturating_add(1);
         id
     }
 
-    fn spawn_debug_enemies(&mut self) {
-        for (i, type_id) in ["grunt", "climber", "grunt"].iter().enumerate() {
-            let Some(stats) = catalog::enemy_by_id(type_id) else {
-                continue;
-            };
-            let id = self.alloc_id();
-            let start = EXTERIOR_WAYPOINTS[0];
-            self.enemies.insert(
+    fn begin_wave(&mut self, wave_num: u32) {
+        let Some(def) = WAVES.get(wave_num as usize - 1) else {
+            return;
+        };
+        self.wave = wave_num;
+        self.spawn_group_index = 0;
+        self.spawn_timer = 0.0;
+        self.wave_spawn_finished = def.spawns.is_empty();
+        self.spawns_left_in_group = def
+            .spawns
+            .first()
+            .map(|s| s.count)
+            .unwrap_or(0);
+    }
+
+    fn update_wave_spawns(&mut self, dt: f32) {
+        if self.wave_spawn_finished || self.wave == 0 {
+            return;
+        }
+        let Some(def) = WAVES.get(self.wave as usize - 1) else {
+            self.wave_spawn_finished = true;
+            return;
+        };
+        if self.spawn_group_index >= def.spawns.len() {
+            self.wave_spawn_finished = true;
+            return;
+        }
+
+        self.spawn_timer -= dt;
+        while self.spawn_timer <= 0.0 {
+            let spawn = def.spawns[self.spawn_group_index];
+            if self.spawns_left_in_group > 0 {
+                self.spawn_enemy(spawn.type_id);
+                self.spawns_left_in_group -= 1;
+                self.spawn_timer += spawn.interval;
+            }
+            if self.spawns_left_in_group == 0 {
+                self.spawn_group_index += 1;
+                if self.spawn_group_index >= def.spawns.len() {
+                    self.wave_spawn_finished = true;
+                    break;
+                }
+                let next = def.spawns[self.spawn_group_index];
+                self.spawns_left_in_group = next.count;
+                self.spawn_timer = 0.0;
+            }
+            if self.wave_spawn_finished {
+                break;
+            }
+            // 無限ループ防止（interval が 0 の異常データ）
+            if spawn.interval <= 0.0 && self.spawns_left_in_group > 0 {
+                break;
+            }
+        }
+    }
+
+    fn spawn_enemy(&mut self, type_id: &str) {
+        let Some(stats) = catalog::enemy_by_id(type_id) else {
+            return;
+        };
+        let id = self.alloc_id();
+        let start = EXTERIOR_WAYPOINTS[0];
+        let offset = (id % 5) as f32 * 0.35;
+        self.enemies.insert(
+            id,
+            Enemy {
                 id,
-                Enemy {
-                    id,
-                    type_id: stats.type_id.into(),
-                    visual_key: stats.visual_key.into(),
-                    x: start.x + i as f32 * 0.8,
-                    y: start.y,
-                    z: start.z,
-                    hp: stats.hp,
-                    speed: stats.speed,
-                    phase: 0.0,
-                    waypoint_index: 0,
-                },
-            );
+                type_id: stats.type_id.into(),
+                visual_key: stats.visual_key.into(),
+                x: start.x + offset,
+                y: start.y,
+                z: start.z,
+                hp: stats.hp,
+                speed: stats.speed,
+                phase: 0.0,
+                waypoint_index: 0,
+            },
+        );
+    }
+
+    fn check_wave_cleared(&mut self) {
+        if matches!(self.match_state, MatchState::Won | MatchState::Lost) {
+            return;
+        }
+        if !self.wave_spawn_finished || !self.enemies.is_empty() || self.wave == 0 {
+            return;
+        }
+        let cleared = self.wave;
+        self.events.push(GameEvent::WaveCleared { wave: cleared });
+        if (cleared as usize) >= WAVES.len() {
+            self.match_state = MatchState::Won;
+            self.paused = true;
+            self.events.push(GameEvent::MatchEnded { won: true });
+        } else {
+            self.begin_wave(cleared + 1);
         }
     }
 
@@ -186,8 +295,9 @@ impl World {
             });
             self.enemies.remove(&id);
             if self.castle_hp <= 0.0 {
-                self.events.push(GameEvent::MatchEnded { won: false });
+                self.match_state = MatchState::Lost;
                 self.paused = true;
+                self.events.push(GameEvent::MatchEnded { won: false });
             }
         }
     }
@@ -295,13 +405,29 @@ impl World {
         for command in commands {
             match command {
                 Command::TogglePause => {
+                    if matches!(self.match_state, MatchState::Won | MatchState::Lost) {
+                        continue;
+                    }
                     self.paused = !self.paused;
+                    self.match_state = if self.paused {
+                        MatchState::Paused
+                    } else {
+                        MatchState::Playing
+                    };
                     self.events
                         .push(GameEvent::PauseChanged { paused: self.paused });
                 }
                 Command::SetPaused { paused } => {
+                    if matches!(self.match_state, MatchState::Won | MatchState::Lost) {
+                        continue;
+                    }
                     if self.paused != paused {
                         self.paused = paused;
+                        self.match_state = if paused {
+                            MatchState::Paused
+                        } else {
+                            MatchState::Playing
+                        };
                         self.events.push(GameEvent::PauseChanged { paused });
                     }
                 }
@@ -349,6 +475,14 @@ impl World {
             }
         }
     }
+
+    /// テスト用: ウェーブ自動スポーンを止める。
+    #[cfg(test)]
+    fn suppress_wave_spawns(&mut self) {
+        self.auto_waves = false;
+        self.wave_spawn_finished = true;
+        self.spawns_left_in_group = 0;
+    }
 }
 
 impl Default for World {
@@ -364,6 +498,7 @@ mod tests {
     #[test]
     fn when_not_paused_tick_advances() {
         let mut world = World::new();
+        world.suppress_wave_spawns();
         world.tick(1.0 / 60.0);
         world.tick(1.0 / 60.0);
         assert_eq!(world.current_tick(), 2);
@@ -375,12 +510,14 @@ mod tests {
         world.push_command(Command::SetPaused { paused: true });
         world.tick(1.0 / 60.0);
         assert!(world.is_paused());
+        assert_eq!(world.match_state(), MatchState::Paused);
         assert_eq!(world.current_tick(), 0);
     }
 
     #[test]
     fn when_gold_is_enough_tower_is_placed() {
         let mut world = World::new();
+        world.suppress_wave_spawns();
         world.push_command(Command::PlaceTower {
             type_id: "cannon".into(),
             cell_x: 4,
@@ -394,6 +531,7 @@ mod tests {
     #[test]
     fn when_gold_is_not_enough_tower_is_not_placed() {
         let mut world = World::new();
+        world.suppress_wave_spawns();
         world.resources = 10;
         world.push_command(Command::PlaceTower {
             type_id: "cannon".into(),
@@ -406,13 +544,31 @@ mod tests {
     }
 
     #[test]
+    fn when_wave_starts_enemies_spawn_from_waves() {
+        let mut world = World::new();
+        world.tick(0.0);
+        assert_eq!(world.wave(), 1);
+        assert_eq!(world.enemies.len(), 1);
+        world.tick(1.2);
+        assert!(world.enemies.len() >= 2);
+    }
+
+    #[test]
     fn when_enemies_reach_end_castle_hp_decreases() {
         let mut world = World::new();
         world.tick(0.0);
-        assert_eq!(world.enemies.len(), 3);
+        assert!(!world.enemies.is_empty());
         for _ in 0..10_000 {
             world.tick(0.05);
-            if world.enemies.is_empty() {
+            if world.enemies.is_empty() && world.wave_spawn_finished {
+                // 次ウェーブが始まる前に HP を確認したいので、全滅かつスポーン完了を待つ
+                if world.match_state() == MatchState::Lost
+                    || world.castle_hp_value() < 100.0
+                {
+                    break;
+                }
+            }
+            if world.castle_hp_value() < 100.0 {
                 break;
             }
         }
@@ -422,7 +578,7 @@ mod tests {
     #[test]
     fn when_tower_is_in_range_enemy_can_be_killed() {
         let mut world = World::new();
-        world.debug_spawned = true;
+        world.suppress_wave_spawns();
         world.enemies.clear();
         world.enemies.insert(
             99,
@@ -453,5 +609,13 @@ mod tests {
         }
         assert!(world.enemies.is_empty());
         assert!(world.resources() > 60);
+    }
+
+    #[test]
+    fn when_snapshot_taken_match_state_and_total_waves_are_included() {
+        let mut world = World::new();
+        let snap = world.take_snapshot();
+        assert_eq!(snap.match_state, MatchState::Playing);
+        assert_eq!(snap.total_waves, WAVES.len() as u32);
     }
 }

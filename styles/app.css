@@ -53,3 +53,34 @@ body {
 #yew-root button {
   cursor: pointer;
 }
+
+.match-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(6, 10, 20, 0.45);
+  z-index: 5;
+}
+
+.match-overlay__panel {
+  pointer-events: none;
+  min-width: 16rem;
+  padding: 1.5rem 2rem;
+  text-align: center;
+  background: rgba(12, 18, 32, 0.92);
+  border: 1px solid rgba(220, 200, 140, 0.45);
+}
+
+.match-overlay__title {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+}
+
+.match-overlay__detail {
+  margin: 0;
+  opacity: 0.85;
+}
