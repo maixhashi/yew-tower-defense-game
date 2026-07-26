@@ -46,3 +46,15 @@ export PATH="/path/to/my-cursor-settings/bin:$PATH"
 cursor-settings apply /path/to/yew-tower-defense-game \
   --layers common,personal-pc --stacks rust
 ```
+
+## PR 用スクリーンショット（Playwright）
+
+PR の `### Screenshot/Capture` 用に、ローカルで撮影してブランチへコミットします（GitHub Actions では実行しません）。`webServer` で Trunk を二重起動しないため、アプリを先に起動してください。
+
+```bash
+docker compose up --build
+# 別ターミナル（HTTP ready 後）
+npm run pr:screenshot
+```
+
+一時成果物は `e2e/artifacts/`（gitignore）。PR に載せる画像は `docs/assets/pr-screenshots/` へコピーされます。スクリプトが出力する Markdown を PR 本文に貼り、同じブランチへコミット・push してください。

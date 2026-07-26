@@ -16,6 +16,13 @@ target
 # Trunk
 dist/
 
+# Playwright / E2E
+node_modules/
+e2e/artifacts/
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Cursor local (hub is source of truth: my-cursor-settings)
 .cursor/
 

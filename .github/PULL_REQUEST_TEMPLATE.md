@@ -1,4 +1,7 @@
 <!-- タイトル形式: feat|fix|chore: 日本語の概要 -->
+<!-- 先頭: docs/assets/pr-diagrams/ の説明図を raw URL で1枚 -->
+
+![PR説明図](docs/assets/pr-diagrams/REPLACE-WITH-BRANCH-SLUG.png)
 
 ### What
 
@@ -23,7 +26,7 @@
 
 ### Screenshot/Capture
 
-<!-- UI 変更がある場合は画像・GIF・動画リンクを貼る。なければ「なし」 -->
+<!-- 実行画面のみ。`npm run pr:screenshot` → docs/assets/pr-screenshots/ を raw URL で。説明図は本文先頭のみ。なければ「なし」 -->
 
 なし
 
