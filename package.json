@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "e2e:screenshot": "playwright test",
-    "e2e:install": "playwright install chromium"
+    "e2e:install": "playwright install chromium",
+    "pr:screenshot": "bash .github/scripts/capture-pr-screenshot.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1"
