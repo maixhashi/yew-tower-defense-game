@@ -79,6 +79,11 @@ if (!canvas) {
         new THREE.BoxGeometry(0.9, 1.2, 0.9),
         new THREE.MeshStandardMaterial({ color: 0xc45c5c }),
       ),
+    enemy_climber: () =>
+      new THREE.Mesh(
+        new THREE.ConeGeometry(0.55, 1.4, 8),
+        new THREE.MeshStandardMaterial({ color: 0xe07a3a }),
+      ),
     tower_cannon: () =>
       new THREE.Mesh(
         new THREE.CylinderGeometry(0.45, 0.55, 1.4, 10),
