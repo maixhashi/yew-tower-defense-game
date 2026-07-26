@@ -78,7 +78,7 @@ fn emit_snapshot(json: &str) {
     let Some(window) = web_sys::window() else {
         return;
     };
-    let mut init = CustomEventInit::new();
+    let init = CustomEventInit::new();
     init.set_detail(&JsValue::from_str(json));
     if let Ok(event) = CustomEvent::new_with_event_init_dict("td-snapshot", &init) {
         let _ = window.dispatch_event(&event);
