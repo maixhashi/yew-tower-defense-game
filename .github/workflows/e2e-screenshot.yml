@@ -1,0 +1,55 @@
+name: e2e-screenshot
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start app (Docker)
+        run: docker compose up --build -d
+
+      - name: Wait for HTTP
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:8080/ >/dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose logs
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Run screenshot smoke
+        run: npm run e2e:screenshot
+
+      - name: Upload screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: |
+            e2e/artifacts/**
+            playwright-report/**
+          if-no-files-found: warn
+
+      - name: Stop app
+        if: always()
+        run: docker compose down

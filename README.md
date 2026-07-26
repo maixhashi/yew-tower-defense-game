@@ -46,3 +46,17 @@ export PATH="/path/to/my-cursor-settings/bin:$PATH"
 cursor-settings apply /path/to/yew-tower-defense-game \
   --layers common,personal-pc --stacks rust
 ```
+
+## E2E スクリーンショット（Playwright）
+
+アプリを先に起動してから実行します（`webServer` で Trunk を二重起動しません）。
+
+```bash
+docker compose up --build
+# 別ターミナル
+npm ci
+npm run e2e:install
+npm run e2e:screenshot
+```
+
+成果物は `e2e/artifacts/`（gitignore）。CI では artifact としてアップロードされます。

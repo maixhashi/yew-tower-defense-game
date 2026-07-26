@@ -1,0 +1,11 @@
+{
+  "name": "yew-tower-defense-game-e2e",
+  "private": true,
+  "scripts": {
+    "e2e:screenshot": "playwright test",
+    "e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1"
+  }
+}
