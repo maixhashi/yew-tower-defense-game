@@ -1,7 +1,0 @@
-[package]
-name = "yew-tower-defense-game"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-yew = { version = "0.23", features = ["csr"] }
