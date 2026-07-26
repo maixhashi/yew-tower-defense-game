@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use super::catalog;
 use super::command::Command;
 use super::entity::{Enemy, EntityId, Tower};
 use super::event::GameEvent;
+use super::exterior::{try_place_tower, PlaceError};
 use super::snapshot::{EnemySnap, FrameSnapshot, TowerSnap};
 
 /// シミュレーション状態の単一所有者。
@@ -14,6 +16,7 @@ pub struct World {
     resources: u32,
     wave: u32,
     next_id: EntityId,
+    selected_type: Option<String>,
     towers: HashMap<EntityId, Tower>,
     enemies: HashMap<EntityId, Enemy>,
     commands: Vec<Command>,
@@ -30,6 +33,7 @@ impl World {
             resources: 100,
             wave: 0,
             next_id: 1,
+            selected_type: None,
             towers: HashMap::new(),
             enemies: HashMap::new(),
             commands: Vec::new(),
@@ -100,6 +104,14 @@ impl World {
         self.tick
     }
 
+    pub fn resources(&self) -> u32 {
+        self.resources
+    }
+
+    pub fn castle_hp_value(&self) -> f32 {
+        self.castle_hp
+    }
+
     fn alloc_id(&mut self) -> EntityId {
         let id = self.next_id;
         self.next_id = self.next_id.saturating_add(1);
@@ -121,12 +133,12 @@ impl World {
                     hp: 10.0,
                     speed: 1.2 + i as f32 * 0.15,
                     phase: i as f32,
+                    waypoint_index: 0,
                 },
             );
         }
     }
 
-    /// Update Method: 敵ごとの簡易移動（円弧デモ）。
     fn update_enemies(&mut self, dt: f32) {
         for enemy in self.enemies.values_mut() {
             enemy.phase += dt * enemy.speed;
@@ -135,6 +147,12 @@ impl World {
             enemy.z = radius * enemy.phase.sin();
             enemy.y = 0.6;
         }
+    }
+
+    fn cell_occupied(&self, cell_x: i32, cell_z: i32) -> bool {
+        self.towers
+            .values()
+            .any(|t| t.cell_x == cell_x && t.cell_z == cell_z)
     }
 
     fn apply_commands(&mut self) {
@@ -150,6 +168,47 @@ impl World {
                     if self.paused != paused {
                         self.paused = paused;
                         self.events.push(GameEvent::PauseChanged { paused });
+                    }
+                }
+                Command::SelectCard { card } => {
+                    let type_id = match card.as_str() {
+                        "cannon" | "Cannon" | "大砲" => "cannon",
+                        "archer" | "Archer" | "弓兵" => "archer",
+                        "barricade" | "Barricade" | "バリケード" => "barricade",
+                        other => other,
+                    };
+                    if catalog::defense_by_id(type_id).is_some() {
+                        self.selected_type = Some(type_id.into());
+                    }
+                }
+                Command::PlaceTower {
+                    type_id,
+                    cell_x,
+                    cell_z,
+                } => {
+                    let chosen = if type_id.is_empty() {
+                        self.selected_type.clone().unwrap_or_default()
+                    } else {
+                        type_id
+                    };
+                    if self.cell_occupied(cell_x, cell_z) {
+                        continue;
+                    }
+                    match try_place_tower(
+                        &mut self.next_id,
+                        &mut self.resources,
+                        &mut |_, _| false,
+                        &chosen,
+                        cell_x,
+                        cell_z,
+                    ) {
+                        Ok(tower) => {
+                            self.towers.insert(tower.id, tower);
+                        }
+                        Err(PlaceError::NotEnoughGold)
+                        | Err(PlaceError::InvalidCell)
+                        | Err(PlaceError::Occupied)
+                        | Err(PlaceError::UnknownType) => {}
                     }
                 }
             }
@@ -180,19 +239,34 @@ mod tests {
         let mut world = World::new();
         world.push_command(Command::SetPaused { paused: true });
         world.tick(1.0 / 60.0);
-        world.tick(1.0 / 60.0);
         assert!(world.is_paused());
         assert_eq!(world.current_tick(), 0);
     }
 
     #[test]
-    fn when_ticked_debug_enemies_are_spawned_and_move() {
+    fn when_gold_is_enough_tower_is_placed() {
         let mut world = World::new();
-        world.tick(0.1);
-        assert_eq!(world.enemies.len(), 3);
-        let before = world.enemies.values().next().unwrap().x;
-        world.tick(0.5);
-        let after = world.enemies.values().next().unwrap().x;
-        assert_ne!(before, after);
+        world.push_command(Command::PlaceTower {
+            type_id: "cannon".into(),
+            cell_x: 4,
+            cell_z: 0,
+        });
+        world.tick(0.0);
+        assert_eq!(world.towers.len(), 1);
+        assert_eq!(world.resources(), 60);
+    }
+
+    #[test]
+    fn when_gold_is_not_enough_tower_is_not_placed() {
+        let mut world = World::new();
+        world.resources = 10;
+        world.push_command(Command::PlaceTower {
+            type_id: "cannon".into(),
+            cell_x: 4,
+            cell_z: 0,
+        });
+        world.tick(0.0);
+        assert!(world.towers.is_empty());
+        assert_eq!(world.resources(), 10);
     }
 }

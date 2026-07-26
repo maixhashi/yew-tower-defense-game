@@ -1,6 +1,8 @@
+pub mod catalog;
 pub mod command;
 pub mod entity;
 pub mod event;
+pub mod exterior;
 pub mod snapshot;
 pub mod world;
 

@@ -24,6 +24,14 @@ impl DefenseCard {
             Self::Barricade => "バリケード",
         }
     }
+
+    pub const fn type_id(self) -> &'static str {
+        match self {
+            Self::Cannon => "cannon",
+            Self::Archer => "archer",
+            Self::Barricade => "barricade",
+        }
+    }
 }
 
 /// 設定など、ブラウザ再訪後も残したい UI 状態。
