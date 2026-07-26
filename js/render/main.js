@@ -1,7 +1,9 @@
 /**
  * Static box-castle + Dirty Flag sync from td-snapshot events.
+ * glTF があれば読み込み、失敗時はボックスにフォールバック。
  */
 import * as THREE from "https://unpkg.com/three@0.170.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
 
 const canvas = document.getElementById("game-canvas");
 if (!canvas) {
@@ -73,7 +75,7 @@ if (!canvas) {
     scene.add(tower);
   }
 
-  const visualRegistry = {
+  const boxFallbacks = {
     enemy_box: () =>
       new THREE.Mesh(
         new THREE.BoxGeometry(0.9, 1.2, 0.9),
@@ -105,6 +107,41 @@ if (!canvas) {
         new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0x665522 }),
       ),
   };
+
+  /** @type {Record<string, () => THREE.Object3D>} */
+  const visualRegistry = { ...boxFallbacks };
+
+  /** glTF テンプレ（clone 用）。未ロードなら null。 */
+  const gltfTemplates = {
+    tower_cannon: null,
+  };
+
+  const gltfLoader = new GLTFLoader();
+  gltfLoader.load(
+    "/assets/models/tower_cannon.gltf",
+    (gltf) => {
+      const root = gltf.scene || gltf.scenes[0];
+      if (!root) return;
+      root.traverse((obj) => {
+        if (obj.isMesh) {
+          obj.castShadow = false;
+          if (!obj.material) {
+            obj.material = new THREE.MeshStandardMaterial({ color: 0xd4a574 });
+          }
+        }
+      });
+      gltfTemplates.tower_cannon = root;
+      visualRegistry.tower_cannon = () => {
+        const tmpl = gltfTemplates.tower_cannon;
+        return tmpl ? tmpl.clone(true) : boxFallbacks.tower_cannon();
+      };
+      console.info("[render] loaded glTF tower_cannon");
+    },
+    undefined,
+    (err) => {
+      console.warn("[render] glTF load failed, using box fallback", err);
+    },
+  );
 
   const dynamicRoot = new THREE.Group();
   scene.add(dynamicRoot);
@@ -174,6 +211,7 @@ if (!canvas) {
     THREE,
     applySnapshot,
     visualRegistry,
+    gltfTemplates,
   };
   window.__tdLastSnapshot = null;
   window.addEventListener("td-snapshot", (event) => {
