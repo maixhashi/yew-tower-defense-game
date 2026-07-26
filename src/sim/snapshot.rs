@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::event::GameEvent;
-use super::match_state::MatchState;
+use super::match_state::{MatchState, SceneMode};
 
 /// 描画 / UI 向けの所有スナップショット（World を外に貸さない）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -9,6 +9,7 @@ pub struct FrameSnapshot {
     pub tick: u64,
     pub paused: bool,
     pub match_state: MatchState,
+    pub scene_mode: SceneMode,
     pub castle_hp: f32,
     pub resources: u32,
     pub wave: u32,

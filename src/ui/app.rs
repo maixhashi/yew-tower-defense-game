@@ -106,6 +106,7 @@ pub fn app() -> Html {
     let match_label = match *sim_match_state {
         MatchState::Playing => "進行中",
         MatchState::Paused => "ポーズ中",
+        MatchState::Interior => "城内戦",
         MatchState::Won => "勝利",
         MatchState::Lost => "敗北",
     };

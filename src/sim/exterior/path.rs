@@ -44,10 +44,30 @@ pub fn advance_along_path(
     speed: f32,
     dt: f32,
 ) -> bool {
-    if *waypoint_index >= EXTERIOR_WAYPOINTS.len() {
+    advance_along_waypoints(
+        EXTERIOR_WAYPOINTS,
+        waypoint_index,
+        x,
+        y,
+        z,
+        speed,
+        dt,
+    )
+}
+
+pub fn advance_along_waypoints(
+    waypoints: &[Vec3],
+    waypoint_index: &mut usize,
+    x: &mut f32,
+    y: &mut f32,
+    z: &mut f32,
+    speed: f32,
+    dt: f32,
+) -> bool {
+    if *waypoint_index >= waypoints.len() {
         return true;
     }
-    let target = EXTERIOR_WAYPOINTS[*waypoint_index];
+    let target = waypoints[*waypoint_index];
     let dx = target.x - *x;
     let dy = target.y - *y;
     let dz = target.z - *z;
@@ -58,7 +78,7 @@ pub fn advance_along_path(
         *y = target.y;
         *z = target.z;
         *waypoint_index += 1;
-        return *waypoint_index >= EXTERIOR_WAYPOINTS.len();
+        return *waypoint_index >= waypoints.len();
     }
     let inv = step / dist;
     *x += dx * inv;
