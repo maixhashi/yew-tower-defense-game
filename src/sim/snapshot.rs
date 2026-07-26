@@ -12,7 +12,16 @@ pub struct FrameSnapshot {
     pub wave: u32,
     pub towers: Vec<TowerSnap>,
     pub enemies: Vec<EnemySnap>,
+    pub projectiles: Vec<ProjectileSnap>,
     pub events: Vec<GameEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectileSnap {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

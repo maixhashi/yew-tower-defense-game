@@ -29,3 +29,14 @@ pub struct Tower {
     pub z: f32,
     pub cooldown: f32,
 }
+
+#[derive(Debug, Clone)]
+pub struct Projectile {
+    pub id: EntityId,
+    pub target_id: EntityId,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub speed: f32,
+    pub damage: f32,
+}
