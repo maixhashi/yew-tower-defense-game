@@ -93,4 +93,14 @@ if (!canvas) {
   requestAnimationFrame(frame);
 
   window.__tdRender = { scene, camera, renderer, THREE };
+  window.__tdLastSnapshot = null;
+  window.addEventListener("td-snapshot", (event) => {
+    try {
+      const detail = event.detail;
+      window.__tdLastSnapshot =
+        typeof detail === "string" ? JSON.parse(detail) : detail;
+    } catch (err) {
+      console.warn("[render] snapshot parse failed", err);
+    }
+  });
 }
