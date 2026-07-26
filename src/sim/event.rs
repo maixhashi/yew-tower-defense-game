@@ -5,4 +5,8 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum GameEvent {
     PauseChanged { paused: bool },
+    Breach { damage: f32, enemy_id: u32 },
+    EnemyKilled { enemy_id: u32, reward: u32 },
+    WaveCleared { wave: u32 },
+    MatchEnded { won: bool },
 }

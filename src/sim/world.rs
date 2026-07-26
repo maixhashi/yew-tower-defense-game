@@ -4,7 +4,7 @@ use super::catalog;
 use super::command::Command;
 use super::entity::{Enemy, EntityId, Tower};
 use super::event::GameEvent;
-use super::exterior::{try_place_tower, PlaceError};
+use super::exterior::{advance_along_path, try_place_tower, PlaceError, EXTERIOR_WAYPOINTS};
 use super::snapshot::{EnemySnap, FrameSnapshot, TowerSnap};
 
 /// シミュレーション状態の単一所有者。
@@ -119,20 +119,24 @@ impl World {
     }
 
     fn spawn_debug_enemies(&mut self) {
-        for i in 0..3 {
+        for (i, type_id) in ["grunt", "climber", "grunt"].iter().enumerate() {
+            let Some(stats) = catalog::enemy_by_id(type_id) else {
+                continue;
+            };
             let id = self.alloc_id();
+            let start = EXTERIOR_WAYPOINTS[0];
             self.enemies.insert(
                 id,
                 Enemy {
                     id,
-                    type_id: "debug_grunt".into(),
-                    visual_key: "enemy_box".into(),
-                    x: -10.0 + i as f32 * 2.0,
-                    y: 0.6,
-                    z: -12.0,
-                    hp: 10.0,
-                    speed: 1.2 + i as f32 * 0.15,
-                    phase: i as f32,
+                    type_id: stats.type_id.into(),
+                    visual_key: stats.visual_key.into(),
+                    x: start.x + i as f32 * 0.8,
+                    y: start.y,
+                    z: start.z,
+                    hp: stats.hp,
+                    speed: stats.speed,
+                    phase: 0.0,
                     waypoint_index: 0,
                 },
             );
@@ -140,12 +144,37 @@ impl World {
     }
 
     fn update_enemies(&mut self, dt: f32) {
+        let mut breached = Vec::new();
         for enemy in self.enemies.values_mut() {
-            enemy.phase += dt * enemy.speed;
-            let radius = 11.0;
-            enemy.x = radius * enemy.phase.cos();
-            enemy.z = radius * enemy.phase.sin();
-            enemy.y = 0.6;
+            let reached = advance_along_path(
+                &mut enemy.waypoint_index,
+                &mut enemy.x,
+                &mut enemy.y,
+                &mut enemy.z,
+                enemy.speed,
+                dt,
+            );
+            if reached {
+                breached.push(enemy.id);
+            }
+        }
+        for id in breached {
+            let damage = self
+                .enemies
+                .get(&id)
+                .and_then(|e| catalog::enemy_by_id(&e.type_id))
+                .map(|s| s.breach_damage)
+                .unwrap_or(5.0);
+            self.castle_hp = (self.castle_hp - damage).max(0.0);
+            self.events.push(GameEvent::Breach {
+                damage,
+                enemy_id: id,
+            });
+            self.enemies.remove(&id);
+            if self.castle_hp <= 0.0 {
+                self.events.push(GameEvent::MatchEnded { won: false });
+                self.paused = true;
+            }
         }
     }
 
@@ -268,5 +297,19 @@ mod tests {
         world.tick(0.0);
         assert!(world.towers.is_empty());
         assert_eq!(world.resources(), 10);
+    }
+
+    #[test]
+    fn when_enemies_reach_end_castle_hp_decreases() {
+        let mut world = World::new();
+        world.tick(0.0);
+        assert_eq!(world.enemies.len(), 3);
+        for _ in 0..10_000 {
+            world.tick(0.05);
+            if world.enemies.is_empty() {
+                break;
+            }
+        }
+        assert!(world.castle_hp_value() < 100.0);
     }
 }
