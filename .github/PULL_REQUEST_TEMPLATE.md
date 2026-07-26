@@ -26,7 +26,7 @@
 
 ### Screenshot/Capture
 
-<!-- Playwright 等の実行画面。説明図（概念図）は本文先頭のみ。なければ「なし」 -->
+<!-- 実行画面のみ。`npm run pr:screenshot` → docs/assets/pr-screenshots/ を raw URL で。説明図は本文先頭のみ。なければ「なし」 -->
 
 なし
 
