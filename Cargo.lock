@@ -974,8 +974,12 @@ dependencies = [
 name = "yew-tower-defense-game"
 version = "0.1.0"
 dependencies = [
+ "gloo-timers",
  "gloo-utils",
  "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
  "yew",
  "yewdux",
 ]
