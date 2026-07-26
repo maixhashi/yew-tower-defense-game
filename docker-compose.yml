@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/app/target
+    command: ["trunk", "serve", "--address", "0.0.0.0", "--port", "8080"]
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  target-cache:
